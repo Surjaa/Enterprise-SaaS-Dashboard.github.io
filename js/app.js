@@ -1,8 +1,12 @@
 'use strict';
 /* =====================================================================
-   TEMPO - app.js  (vanilla JavaScript, no libraries, no build step)
+   ENTERPRISE SAAS DASHBOARD - app.js  (vanilla JavaScript, no libraries, no build step)
+
+   >>> TO RENAME THE BRAND, CHANGE ONLY THE "BRAND" LINE BELOW <<<
+   It updates the logo text, page titles, demo emails and CSV file name.
 
    Table of contents
+   0.  Brand settings
    1.  Helpers & storage
    2.  Fake data (seeded, so it looks the same every time)
    3.  Icons
@@ -10,10 +14,16 @@
    5.  Charts (hand-made SVG)
    6.  Data table (search + sort + filter + pagination)
    7.  Live pulse engine (the signature feature)
-   8.  Command palette + "ask Tempo"
+   8.  Command palette + "ask the assistant"
    9.  Pages
    10. Router, auth, boot
    ===================================================================== */
+
+/* ---------- 0. BRAND SETTINGS ---------- */
+const BRAND = 'Enterprise SaaS Dashboard';          // <-- the name shown on screen
+const BRAND_SLUG = BRAND.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const BRAND_MAIL = BRAND_SLUG.replace(/-/g, '') + '.app'; // used for demo emails
+const OLD_BRAND = 'Tempo';                          // old name still written in index.html, replaced on load
 
 /* ---------- 1. HELPERS & STORAGE ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -25,6 +35,8 @@ const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 const sum = (arr, k) => arr.reduce((t, x) => t + x[k], 0);
 const pct = (a, b) => b ? ((a - b) / b) * 100 : 0;
 const iso = d => d.toISOString().slice(0, 10);
+/* NOTE: the 'tempo.' storage prefix is internal only (never shown) and must match the
+   script in index.html <head>, so it is intentionally left unchanged. */
 const store = {
   get(k, d) { try { const v = localStorage.getItem('tempo.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('tempo.' + k, JSON.stringify(v)); } catch (e) { /* private mode: ignore */ } }
@@ -47,6 +59,20 @@ function downloadCSV(name, rows) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* Replace the old brand name anywhere it is still written in the HTML (logo, headings, labels) */
+function applyBrand() {
+  $$('[data-brand]').forEach(el => { el.textContent = BRAND; });
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) if (walker.currentNode.nodeValue.includes(OLD_BRAND)) hits.push(walker.currentNode);
+  hits.forEach(n => { n.nodeValue = n.nodeValue.split(OLD_BRAND).join(BRAND); });
+  $$('[aria-label],[title],[alt],[placeholder]').forEach(el => {
+    ['aria-label', 'title', 'alt', 'placeholder'].forEach(a => {
+      const v = el.getAttribute(a); if (v && v.includes(OLD_BRAND)) el.setAttribute(a, v.split(OLD_BRAND).join(BRAND));
+    });
+  });
 }
 
 /* ---------- 2. FAKE DATA ---------- */
@@ -108,9 +134,9 @@ const orders = Array.from({ length: 140 }, () => {
 }).sort((a, b) => b.date - a.date);
 
 const team = [
-  ['Alex Morgan', 'Owner', 'alex@tempo.app', 'Active'], ['Jordan Lee', 'Admin', 'jordan@tempo.app', 'Active'], ['Sam Rivera', 'Analyst', 'sam@tempo.app', 'Active'],
-  ['Riya Kapoor', 'Support', 'riya@tempo.app', 'Active'], ['Chris Duval', 'Analyst', 'chris@tempo.app', 'Away'], ['Mina Park', 'Support', 'mina@tempo.app', 'Active'],
-  ['Tobias Wren', 'Admin', 'tobias@tempo.app', 'Invited'], ['Leila Haddad', 'Analyst', 'leila@tempo.app', 'Active'], ['Pat Nguyen', 'Support', 'pat@tempo.app', 'Away']
+  ['Alex Morgan', 'Owner', 'alex@' + BRAND_MAIL, 'Active'], ['Jordan Lee', 'Admin', 'jordan@' + BRAND_MAIL, 'Active'], ['Sam Rivera', 'Analyst', 'sam@' + BRAND_MAIL, 'Active'],
+  ['Riya Kapoor', 'Support', 'riya@' + BRAND_MAIL, 'Active'], ['Chris Duval', 'Analyst', 'chris@' + BRAND_MAIL, 'Away'], ['Mina Park', 'Support', 'mina@' + BRAND_MAIL, 'Active'],
+  ['Tobias Wren', 'Admin', 'tobias@' + BRAND_MAIL, 'Invited'], ['Leila Haddad', 'Analyst', 'leila@' + BRAND_MAIL, 'Active'], ['Pat Nguyen', 'Support', 'pat@' + BRAND_MAIL, 'Away']
 ].map((t, i) => ({ id: i + 1, name: t[0], role: t[1], email: t[2], status: t[3], seen: new Date(Date.now() - between(2, 3000) * 60000) }));
 
 const notes = [
@@ -401,7 +427,7 @@ function scheduleLive() { setTimeout(() => { if (state.user) newLiveOrder(); sch
 
 function updateBadge() { const b = $('#badge'); b.hidden = state.unread < 1; b.textContent = state.unread > 9 ? '9+' : state.unread; }
 
-/* ---------- 8. COMMAND PALETTE + ASK TEMPO ---------- */
+/* ---------- 8. COMMAND PALETTE + ASK THE ASSISTANT ---------- */
 function getRange() {
   const r = state.range; let cur;
   if (r.preset === 'custom') cur = days.filter(d => iso(d.date) >= r.from && iso(d.date) <= r.to);
@@ -544,7 +570,7 @@ routes.dashboard = {
   init(el) {
     const { cur, prev } = getRange();
     lineChart($('#chRev', el), { labels: cur.map(d => d.label), series: [{ name: 'Previous', color: 'var(--muted)', values: cur.map((_, i) => prev[i] ? prev[i].revenue : 0), dash: true }, { name: 'This period', color: 'var(--accent)', values: cur.map(d => d.revenue), fill: true }], yFmt: v => '$' + fmt(v), tipFmt: money, label: 'Revenue line chart' });
-    let c = days.indexOf(cur[0]) > 0 ? 1800 : 1800; const base = days.slice(0, days.indexOf(cur[0])).reduce((t, d) => t + d.newCust, 1800);
+    const base = days.slice(0, days.indexOf(cur[0])).reduce((t, d) => t + d.newCust, 1800);
     let run = base; const growth = cur.map(d => (run += d.newCust));
     lineChart($('#chGrow', el), { labels: cur.map(d => d.label), series: [{ name: 'Customers', color: 'var(--accent)', values: growth, fill: true }], zero: false, yFmt: fmt, tipFmt: v => Math.round(v).toLocaleString(), label: 'Customer growth chart' });
     const sb = bucket(cur, 'orders'); barChart($('#chSales', el), { labels: sb.labels, values: sb.values, tipFmt: v => Math.round(v) + ' orders', label: 'Orders bar chart' });
@@ -795,7 +821,7 @@ routes.settings = {
       <div class="field"><span>Density</span><div class="seg" style="width:max-content">${['comfortable', 'compact'].map(d => `<button data-density-set="${d}" class="${root.dataset.density === d ? 'on' : ''}">${d[0].toUpperCase() + d.slice(1)}</button>`).join('')}</div></div></div></div>
     <div class="pane" data-pane="alerts"><div class="card" style="max-width:640px">${sw('orders', 'New order alerts', 'Show a notification for every order that arrives.')}${sw('email', 'Email updates', 'Get a summary of important events by email.')}${sw('push', 'Push notifications', 'Allow alerts in your browser.')}${sw('weekly', 'Weekly report', 'Receive a report every Monday morning.')}</div></div>
     <div class="pane" data-pane="security"><form class="card" id="pwForm" novalidate style="max-width:640px">${field('Current password', 'cur', 'password', 'autocomplete="current-password"')}${field('New password', 'pw', 'password', 'autocomplete="new-password"', 'Use 8 or more characters with at least one number.')}${field('Confirm new password', 'pw2', 'password', 'autocomplete="new-password"')}<button class="btn primary" type="submit">Update password</button></form></div>
-    <div class="pane" data-pane="api"><div class="card" style="max-width:640px"><h3>API key</h3><p class="muted" style="margin:6px 0 14px">Use this key to read your data from other tools. Keep it private.</p><div class="code" id="apiKey">tmp_live_&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;a91f</div><div style="display:flex;gap:10px;margin-top:14px"><button class="btn" data-action="copy-key">Copy key</button><button class="btn danger" data-action="roll-key">Roll key</button></div></div></div>`;
+    <div class="pane" data-pane="api"><div class="card" style="max-width:640px"><h3>API key</h3><p class="muted" style="margin:6px 0 14px">Use this key to read your data from other tools. Keep it private.</p><div class="code" id="apiKey">sk_live_&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;a91f</div><div style="display:flex;gap:10px;margin-top:14px"><button class="btn" data-action="copy-key">Copy key</button><button class="btn danger" data-action="roll-key">Roll key</button></div></div></div>`;
   },
   init(el) {
     bindTabs(el);
@@ -863,7 +889,7 @@ const actions = {
     route();
   },
   'notif-read-all'() { notes.forEach(n => n.read = true); state.unread = 0; updateBadge(); renderNotifMenu(); routes.notifications._draw && routes.notifications._draw(); toast('All notifications marked as read.'); },
-  'export-orders'() { downloadCSV('tempo-orders.csv', [['Order', 'Customer', 'Product', 'Qty', 'Amount', 'Status', 'Date']].concat(orders.map(o => [o.id, o.customer, o.product, o.qty, o.amount, o.status, o.date.toISOString()]))); toast('Orders exported.'); },
+  'export-orders'() { downloadCSV(BRAND_SLUG + '-orders.csv', [['Order', 'Customer', 'Product', 'Qty', 'Amount', 'Status', 'Date']].concat(orders.map(o => [o.id, o.customer, o.product, o.qty, o.amount, o.status, o.date.toISOString()]))); toast('Orders exported.'); },
   'add-customer'() {
     openModal({
       title: 'Add customer', body: `<form novalidate>${field('Full name', 'name')}${field('Email', 'email', 'email')}<div class="form-grid">${field('Company', 'company')}${selectField('Plan', 'plan', ['Starter', 'Growth', 'Scale'], 'Growth')}</div></form>`,
@@ -902,7 +928,7 @@ const actions = {
   },
   'update-card'() { openModal({ title: 'Update card', body: `<form novalidate>${field('Name on card', 'n')}${field('Card number (demo, nothing is stored)', 'c', 'text', 'inputmode="numeric" placeholder="4242 4242 4242 4242"')}<div class="form-grid">${field('Expiry', 'e', 'text', 'placeholder="MM/YY"')}${field('CVC', 'v', 'text', 'inputmode="numeric"')}</div></form>`, primary: { label: 'Save card', fn(m) { const f = $('form', m); if (!validate(f, { n: [rule.req('Name')], c: [rule.req('Card number'), v => /^\d{13,19}$/.test(v.replace(/\s/g, '')) ? '' : 'Enter 13 to 19 digits.'], e: [rule.req('Expiry'), v => /^(0[1-9]|1[0-2])\/\d{2}$/.test(v) ? '' : 'Use the format MM/YY.'], v: [rule.req('CVC'), v => /^\d{3,4}$/.test(v) ? '' : 'Enter 3 or 4 digits.'] })) return false; toast('Card updated (demo only).'); } } }); },
   'cancel-sub'() { openModal({ title: 'Cancel your plan?', body: '<p>You will lose access to analytics, live pulse and team seats when the period ends.</p>', secondary: 'Keep my plan', primary: { label: 'Cancel plan', fn: () => toast('Cancellation scheduled (demo).', 'bad') } }); },
-  'copy-key'() { navigator.clipboard && navigator.clipboard.writeText('tmp_live_demo_key_a91f'); toast('API key copied.'); },
+  'copy-key'() { navigator.clipboard && navigator.clipboard.writeText('sk_live_demo_key_a91f'); toast('API key copied.'); },
   'roll-key'() { openModal({ title: 'Roll API key?', body: '<p>The old key stops working straight away. Update any tools that use it.</p>', primary: { label: 'Roll key', fn: () => toast('New key created (demo).') } }); },
   contact() { openModal({ title: 'Contact support', body: `<form novalidate>${selectField('Topic', 'topic', ['Billing', 'Data', 'Security', 'Something else'])}<label class="field"><span>How can we help?</span><textarea name="msg" rows="4"></textarea><small class="err"></small></label></form>`, primary: { label: 'Send message', fn(m) { const f = $('form', m); if (!validate(f, { msg: [rule.req('Message'), rule.min(10, 'Message')] })) return false; toast('Message sent. We reply within one working day.'); } } }); },
   shortcuts() { openModal({ title: 'Keyboard shortcuts', secondary: 'Close', body: `<div class="usage">${[['Ctrl / Cmd + K', 'Open the command palette'], ['g then d', 'Go to Dashboard'], ['g then a', 'Go to Analytics'], ['g then c', 'Go to Customers'], ['g then o', 'Go to Orders'], ['g then p', 'Go to Products'], ['g then t', 'Go to Team'], ['g then s', 'Go to Settings'], ['[', 'Collapse or expand sidebar'], ['?', 'Show this list'], ['Esc', 'Close dialogs']].map(s => `<div style="display:flex;justify-content:space-between"><span>${s[1]}</span><kbd>${s[0]}</kbd></div>`).join('')}</div>` }); }
@@ -919,15 +945,16 @@ function route() {
   cleanups.forEach(fn => fn()); cleanups = []; charts.clear(); closePalette();
   const name = (location.hash.replace('#/', '') || 'dashboard').split('?')[0], r = routes[name] || routes.dashboard, key = routes[name] ? name : 'dashboard';
   const main = $('#main'); main.innerHTML = r.render(); r.init && r.init(main);
-  document.title = r.title + ' | Tempo'; drawNav(key); root.classList.remove('nav-open'); closeDropdowns();
+  document.title = r.title + ' | ' + BRAND; drawNav(key); root.classList.remove('nav-open'); closeDropdowns();
   scrollTo(0, 0); main.focus({ preventScroll: true }); drawPulse();
 }
 function fillUser() { $('#userName').textContent = state.user.name; $('#userAvatar').textContent = initials(state.user.name); }
 function showApp() { $('#login').hidden = true; $('#app').hidden = false; fillUser(); updateBadge(); route(); }
-function showLogin() { $('#app').hidden = true; $('#login').hidden = false; drawPulse(); }
+function showLogin() { $('#app').hidden = true; $('#login').hidden = false; document.title = 'Sign in | ' + BRAND; drawPulse(); }
 function signIn(email, name) { state.user = { email, name }; store.set('auth', state.user); showApp(); toast('Welcome back, ' + name.split(' ')[0] + '.'); }
 
 function boot() {
+  applyBrand();
   $('#navBtn').innerHTML = icon('menu'); $('#searchIcon').innerHTML = icon('search'); $('#bellIcon').innerHTML = icon('bell');
   applyTheme(store.get('theme', 'system'));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (store.get('theme', 'system') === 'system') applyTheme('system'); });
@@ -954,7 +981,7 @@ function boot() {
 
   const lf = $('#loginForm');
   lf.addEventListener('submit', e => { e.preventDefault(); if (!validate(lf, { email: [rule.req('Email'), rule.email], password: [rule.req('Password'), rule.min(6, 'Password')] })) return; const em = lf.email.value.trim(); signIn(em, em.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())); });
-  $('#demoLogin').addEventListener('click', () => signIn('alex@tempo.app', 'Alex Morgan'));
+  $('#demoLogin').addEventListener('click', () => signIn('alex@' + BRAND_MAIL, 'Alex Morgan'));
 
   state.user ? showApp() : showLogin();
   drawPulse(); scheduleLive();
