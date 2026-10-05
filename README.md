@@ -1,4 +1,4 @@
-# Tempo: a commerce dashboard with a heartbeat
+# Enterprise SaaS Dashboard: a commerce dashboard with a heartbeat
 
 Tempo is a B2B SaaS dashboard built with plain HTML, CSS and JavaScript. No frameworks, no chart libraries, no build step. Open `index.html` and it runs.
 
